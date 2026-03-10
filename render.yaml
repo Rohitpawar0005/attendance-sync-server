@@ -1,0 +1,24 @@
+databases:
+  - name: eduattend-sync-db
+    plan: free
+    databaseName: eduattend_sync
+    user: eduattend
+
+services:
+  - type: web
+    name: eduattend-sync
+    plan: free
+    runtime: python
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn server.wsgi"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: eduattend-sync-db
+          property: connectionString
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: SYNC_API_KEY
+        generateValue: true
+      - key: PYTHON_VERSION
+        value: "3.12.0"
