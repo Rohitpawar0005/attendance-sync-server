@@ -187,3 +187,67 @@ def sync_status(request: HttpRequest) -> JsonResponse:
         "server": "eduattend-sync",
         "records": AttendanceRecord.objects.count(),
     })
+
+
+# ── 4. Temporary debug / diagnostic endpoint ───────────────────────────
+
+@csrf_exempt
+def sync_debug(request: HttpRequest) -> JsonResponse:
+    """
+    Temporary diagnostic endpoint.
+    Returns info about database tables, Django version, and any errors.
+    Protected by API key.
+    """
+    err = _check_auth(request)
+    if err:
+        return JsonResponse({"error": err}, status=403)
+
+    import django
+    from django.db import connection
+    import traceback
+
+    info = {
+        "django_version": django.get_version(),
+        "database_engine": settings.DATABASES["default"]["ENGINE"] if "ENGINE" in settings.DATABASES.get("default", {}) else "dj_database_url",
+        "debug": settings.DEBUG,
+        "allowed_hosts": settings.ALLOWED_HOSTS,
+        "csrf_trusted_origins": settings.CSRF_TRUSTED_ORIGINS,
+        "tables": [],
+        "model_counts": {},
+        "errors": [],
+    }
+
+    # Check database tables
+    try:
+        with connection.cursor() as cursor:
+            tables = connection.introspection.table_names(cursor)
+            info["tables"] = tables
+    except Exception as exc:
+        info["errors"].append(f"DB tables check: {traceback.format_exc()}")
+
+    # Check model counts
+    for model_name, model_class in [
+        ("User", User),
+        ("AcademicYear", AcademicYear),
+        ("SchoolClass", SchoolClass),
+        ("Student", Student),
+        ("Teacher", Teacher),
+        ("AttendanceRecord", AttendanceRecord),
+    ]:
+        try:
+            info["model_counts"][model_name] = model_class.objects.count()
+        except Exception as exc:
+            info["errors"].append(f"{model_name}: {traceback.format_exc()}")
+
+    # Check static files
+    try:
+        import os
+        static_root = str(settings.STATIC_ROOT)
+        info["static_root_exists"] = os.path.exists(static_root)
+        if os.path.exists(static_root):
+            info["static_file_count"] = sum(len(f) for _, _, f in os.walk(static_root))
+    except Exception as exc:
+        info["errors"].append(f"Static files: {str(exc)}")
+
+    return JsonResponse(info)
+
