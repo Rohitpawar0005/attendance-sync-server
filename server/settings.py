@@ -5,7 +5,11 @@ Minimal config: SQLite locally, PostgreSQL on Render (via DATABASE_URL).
 """
 import os
 from pathlib import Path
-import dj_database_url
+
+try:
+    import dj_database_url
+except ImportError:
+    dj_database_url = None
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -20,10 +24,11 @@ ALLOWED_HOSTS = (
 )
 
 _csrf_env = os.environ.get('DJANGO_CSRF_TRUSTED_ORIGINS', '')
-CSRF_TRUSTED_ORIGINS = (
-    [o.strip() for o in _csrf_env.split(',') if o.strip()]
-    if _csrf_env else []
-)
+if _csrf_env:
+    CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_env.split(',') if o.strip()]
+else:
+    # Auto-generate from ALLOWED_HOSTS for convenience on Render
+    CSRF_TRUSTED_ORIGINS = [f'https://{h}' for h in ALLOWED_HOSTS if h != '*']
 
 # -- Apps & Middleware --------------------------------------------------------
 INSTALLED_APPS = [
@@ -68,12 +73,20 @@ TEMPLATES = [
 WSGI_APPLICATION = 'server.wsgi.application'
 
 # -- Database -----------------------------------------------------------------
-DATABASES = {
-    'default': dj_database_url.config(
-        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
-        conn_max_age=600,
-    )
-}
+if dj_database_url:
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
+            conn_max_age=600,
+        )
+    }
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 # -- Auth ---------------------------------------------------------------------
 AUTH_USER_MODEL = 'api.User'
@@ -91,7 +104,16 @@ USE_TZ = True
 # -- Static -------------------------------------------------------------------
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# Use STORAGES (Django 4.2+) instead of deprecated STATICFILES_STORAGE
+STORAGES = {
+    'default': {
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    },
+    'staticfiles': {
+        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+    },
+}
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
