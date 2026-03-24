@@ -189,6 +189,148 @@ def sync_status(request: HttpRequest) -> JsonResponse:
     })
 
 
+# ── 4. Receive reference data from the desktop app ─────────────────────
+
+@csrf_exempt
+@require_POST
+def sync_push_data(request: HttpRequest) -> JsonResponse:
+    """
+    Accept reference data (academic years, classes, students, teachers)
+    pushed from the desktop app and upsert into the server database.
+    """
+    err = _check_auth(request)
+    if err:
+        return JsonResponse({"error": err}, status=403)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    created = 0
+    updated = 0
+    errors = []
+
+    # 1) Academic years
+    for ay in data.get("academic_years", []):
+        try:
+            obj, was_created = AcademicYear.objects.update_or_create(
+                year=ay["year"],
+                defaults={"is_active": ay.get("is_active", False)},
+            )
+            if was_created:
+                created += 1
+            else:
+                updated += 1
+        except Exception as exc:
+            errors.append(f"AcademicYear '{ay.get('year')}': {exc}")
+
+    # 2) Classes
+    for cls in data.get("classes", []):
+        try:
+            academic_year = AcademicYear.objects.filter(
+                year=cls["academic_year"]
+            ).first()
+            if not academic_year:
+                errors.append(f"Class: AcademicYear '{cls['academic_year']}' not found")
+                continue
+            _, was_created = SchoolClass.objects.get_or_create(
+                grade=cls["grade"],
+                section=cls["section"].upper(),
+                academic_year=academic_year,
+            )
+            if was_created:
+                created += 1
+        except Exception as exc:
+            errors.append(f"Class '{cls.get('grade')}-{cls.get('section')}': {exc}")
+
+    # 3) Students
+    for stu in data.get("students", []):
+        try:
+            user, user_created = User.objects.get_or_create(
+                username=stu["username"],
+                defaults={
+                    "first_name": stu.get("first_name", ""),
+                    "last_name": stu.get("last_name", ""),
+                    "email": stu.get("email", ""),
+                    "role": "student",
+                },
+            )
+            if not user_created:
+                changed = False
+                for field in ("first_name", "last_name", "email"):
+                    val = stu.get(field, "")
+                    if val and getattr(user, field) != val:
+                        setattr(user, field, val)
+                        changed = True
+                if changed:
+                    user.save()
+                    updated += 1
+
+            # Resolve class
+            school_class = None
+            if stu.get("school_class_grade") and stu.get("academic_year"):
+                ay = AcademicYear.objects.filter(year=stu["academic_year"]).first()
+                if ay:
+                    school_class = SchoolClass.objects.filter(
+                        grade=stu["school_class_grade"],
+                        section=(stu.get("school_class_section") or "A").upper(),
+                        academic_year=ay,
+                    ).first()
+
+            _, was_created = Student.objects.update_or_create(
+                user=user,
+                defaults={
+                    "school_class": school_class,
+                    "roll_number": stu.get("roll_number", ""),
+                },
+            )
+            if was_created:
+                created += 1
+            else:
+                updated += 1
+        except Exception as exc:
+            errors.append(f"Student '{stu.get('username')}': {exc}")
+
+    # 4) Teachers
+    for tch in data.get("teachers", []):
+        try:
+            user, user_created = User.objects.get_or_create(
+                username=tch["username"],
+                defaults={
+                    "first_name": tch.get("first_name", ""),
+                    "last_name": tch.get("last_name", ""),
+                    "email": tch.get("email", ""),
+                    "role": "teacher",
+                },
+            )
+            teacher, was_created = Teacher.objects.get_or_create(user=user)
+            if was_created:
+                created += 1
+
+            # Sync class assignments
+            for cls_data in tch.get("classes", []):
+                ay = AcademicYear.objects.filter(year=cls_data["academic_year"]).first()
+                if not ay:
+                    continue
+                sc = SchoolClass.objects.filter(
+                    grade=cls_data["grade"],
+                    section=cls_data["section"].upper(),
+                    academic_year=ay,
+                ).first()
+                if sc and sc not in teacher.classes.all():
+                    teacher.classes.add(sc)
+        except Exception as exc:
+            errors.append(f"Teacher '{tch.get('username')}': {exc}")
+
+    return JsonResponse({
+        "ok": True,
+        "created": created,
+        "updated": updated,
+        "errors": errors[:20],
+    })
+
+
 # ── 4. Temporary debug / diagnostic endpoint ───────────────────────────
 
 @csrf_exempt
