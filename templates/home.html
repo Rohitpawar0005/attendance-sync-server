@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Edu Attend — Sync Server</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #0a0f1e;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Animated background blobs */
+    .bg-blob {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.18;
+      animation: float 8s ease-in-out infinite;
+      pointer-events: none;
+    }
+    .bg-blob-1 {
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, #6366f1, #8b5cf6);
+      top: -200px; left: -150px;
+      animation-delay: 0s;
+    }
+    .bg-blob-2 {
+      width: 500px; height: 500px;
+      background: radial-gradient(circle, #06b6d4, #3b82f6);
+      bottom: -150px; right: -100px;
+      animation-delay: 3s;
+    }
+    .bg-blob-3 {
+      width: 300px; height: 300px;
+      background: radial-gradient(circle, #f59e0b, #ef4444);
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      animation-delay: 6s;
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0) scale(1); }
+      50% { transform: translateY(-30px) scale(1.05); }
+    }
+
+    /* Grid overlay */
+    .grid-overlay {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(99,102,241,0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(99,102,241,0.06) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+    }
+
+    /* Card */
+    .card {
+      position: relative;
+      z-index: 10;
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px solid rgba(99, 102, 241, 0.25);
+      backdrop-filter: blur(20px);
+      border-radius: 24px;
+      padding: 60px 56px;
+      max-width: 540px;
+      width: 90%;
+      text-align: center;
+      box-shadow: 0 0 60px rgba(99, 102, 241, 0.12), 0 32px 64px rgba(0,0,0,0.4);
+      animation: fadeUp 0.8s ease both;
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Badge */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(99,102,241,0.15);
+      border: 1px solid rgba(99,102,241,0.35);
+      border-radius: 999px;
+      padding: 6px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #a5b4fc;
+      margin-bottom: 28px;
+    }
+    .badge-dot {
+      width: 7px; height: 7px;
+      background: #6ee7b7;
+      border-radius: 50%;
+      animation: pulse-dot 2s ease infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.4); }
+    }
+
+    /* Icon */
+    .icon-wrap {
+      width: 88px; height: 88px;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      border-radius: 24px;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 28px;
+      font-size: 40px;
+      box-shadow: 0 0 40px rgba(99,102,241,0.4);
+      animation: iconGlow 3s ease-in-out infinite;
+    }
+    @keyframes iconGlow {
+      0%, 100% { box-shadow: 0 0 40px rgba(99,102,241,0.4); }
+      50% { box-shadow: 0 0 60px rgba(139,92,246,0.6); }
+    }
+
+    h1 {
+      font-size: 2.4rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #e2e8f0 0%, #a5b4fc 50%, #818cf8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1.2;
+      margin-bottom: 16px;
+    }
+
+    .subtitle {
+      color: #94a3b8;
+      font-size: 1rem;
+      line-height: 1.7;
+      margin-bottom: 40px;
+    }
+
+    /* Stats row */
+    .stats {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 40px;
+      justify-content: center;
+    }
+    .stat {
+      flex: 1;
+      background: rgba(99,102,241,0.08);
+      border: 1px solid rgba(99,102,241,0.18);
+      border-radius: 14px;
+      padding: 16px 12px;
+    }
+    .stat-value {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #a5b4fc;
+    }
+    .stat-label {
+      font-size: 0.7rem;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-top: 4px;
+    }
+
+    /* Button */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: #fff;
+      font-family: 'Inter', sans-serif;
+      font-size: 1rem;
+      font-weight: 600;
+      text-decoration: none;
+      padding: 16px 36px;
+      border-radius: 14px;
+      border: none;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      box-shadow: 0 4px 24px rgba(99,102,241,0.4);
+      width: 100%;
+      justify-content: center;
+    }
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(99,102,241,0.55);
+    }
+    .btn:active { transform: translateY(0); }
+    .btn-arrow { font-size: 1.1rem; transition: transform 0.2s; }
+    .btn:hover .btn-arrow { transform: translateX(4px); }
+
+    /* API endpoints hint */
+    .endpoints {
+      margin-top: 32px;
+      padding-top: 28px;
+      border-top: 1px solid rgba(99,102,241,0.15);
+    }
+    .endpoints-title {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #475569;
+      margin-bottom: 14px;
+    }
+    .endpoint-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .endpoint-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.78rem;
+      color: #64748b;
+      text-align: left;
+    }
+    .endpoint-method {
+      background: rgba(16,185,129,0.12);
+      color: #6ee7b7;
+      border-radius: 5px;
+      padding: 2px 8px;
+      font-size: 0.65rem;
+      font-weight: 700;
+      font-family: monospace;
+      letter-spacing: 0.05em;
+      flex-shrink: 0;
+    }
+    .endpoint-method.post {
+      background: rgba(245,158,11,0.12);
+      color: #fcd34d;
+    }
+    .endpoint-path {
+      font-family: monospace;
+      color: #94a3b8;
+    }
+
+    footer {
+      position: relative;
+      z-index: 10;
+      margin-top: 28px;
+      font-size: 0.75rem;
+      color: #334155;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="bg-blob bg-blob-1"></div>
+  <div class="bg-blob bg-blob-2"></div>
+  <div class="bg-blob bg-blob-3"></div>
+  <div class="grid-overlay"></div>
+
+  <div class="card">
+    <div class="badge">
+      <span class="badge-dot"></span>
+      Server Online
+    </div>
+
+    <div class="icon-wrap">🎓</div>
+
+    <h1>Edu Attend<br/>Sync Server</h1>
+
+    <p class="subtitle">
+      The central hub for your school's attendance data.<br/>
+      Syncing records from all local desktop instances in real time.
+    </p>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-value">🔄</div>
+        <div class="stat-label">Auto Sync</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">🔐</div>
+        <div class="stat-label">API Auth</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">☁️</div>
+        <div class="stat-label">Cloud DB</div>
+      </div>
+    </div>
+
+    <a href="/admin/" class="btn">
+      Go to Admin Panel
+      <span class="btn-arrow">→</span>
+    </a>
+
+    <div class="endpoints">
+      <div class="endpoints-title">Available API Endpoints</div>
+      <div class="endpoint-list">
+        <div class="endpoint-item">
+          <span class="endpoint-method post">POST</span>
+          <span class="endpoint-path">core/api/sync/receive/</span>
+        </div>
+        <div class="endpoint-item">
+          <span class="endpoint-method">GET</span>
+          <span class="endpoint-path">core/api/sync/export/</span>
+        </div>
+        <div class="endpoint-item">
+          <span class="endpoint-method">GET</span>
+          <span class="endpoint-path">core/api/sync/status/</span>
+        </div>
+        <div class="endpoint-item">
+          <span class="endpoint-method post">POST</span>
+          <span class="endpoint-path">core/api/sync/push-data/</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>Edu Attend &copy; 2026 — Built with Django on Render</footer>
+
+</body>
+</html>
